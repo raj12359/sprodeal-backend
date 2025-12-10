@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
@@ -5,17 +6,27 @@ const bodyParser = require("body-parser");
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 // ----------------------------------
 //       MySQL Connection
 // ----------------------------------
+// const db = mysql.createConnection({
+//     host: process.env.DB_HOST || "localhost",
+//     user: process.env.DB_USER || "root",
+//     password: process.env.DB_PASS || "Jayprakash69@",
+//     database: process.env.DB_NAME || "auth_system"
+// });
+
 const db = mysql.createConnection({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASS || "Jayprakash69@",
-    database: process.env.DB_NAME || "auth_system"
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME
 });
 
 db.connect(err => {
