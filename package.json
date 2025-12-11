@@ -17,5 +17,11 @@
   "bugs": {
     "url": "https://github.com/raj12359/sprodeal-backend/issues"
   },
-  "homepage": "https://github.com/raj12359/sprodeal-backend#readme"
+  "homepage": "https://github.com/raj12359/sprodeal-backend#readme",
+  "dependencies": {
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "mysql2": "^3.15.3"
+  }
 }
