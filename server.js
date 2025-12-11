@@ -6,10 +6,21 @@ const bodyParser = require("body-parser");
 
 const app = express();
 
+// app.use(cors({
+//   origin: process.env.FRONTEND_URL,
+//   credentials: true
+// }));
+
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: [
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "https://spyro-deal.netlify.app"
+  ],
   credentials: true
 }));
+
 app.use(bodyParser.json());
 
 // ----------------------------------
@@ -95,6 +106,22 @@ app.delete("/admin/deleteVerification/:id", (req, res) => {
         res.json({ success:true });
     });
 });
+
+app.post("/admin-login", (req, res) => {
+    const { password } = req.body;
+
+    const sql = "SELECT * FROM admin WHERE password = ?";
+    db.query(sql, [password], (err, result) => {
+        if (err) return res.json({ success: false, message: "Database error" });
+
+        if (result.length === 0) {
+            return res.json({ success: false, message: "Incorrect password" });
+        }
+
+        return res.json({ success: true, message: "Login successful" });
+    });
+});
+
 
 // ----------------------------------
 // Start Server (Important Change!)
