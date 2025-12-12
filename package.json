@@ -23,6 +23,15 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+<<<<<<< HEAD
     "mongoose": "^9.0.1"
+=======
+    "mongodb": "^7.0.0",
+    "mongoose": "^9.0.1",
+    "mysql2": "^3.15.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+>>>>>>> f6f8d88a23c0c70f99838da2253500aab9a85568
   }
 }
