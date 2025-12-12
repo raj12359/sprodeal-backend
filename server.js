@@ -8,7 +8,8 @@ const app = express();
 
 // -------------------- CORS --------------------
 app.use(cors({
-  origin: "https://spro-custmercare.netlify.app/", // or your local frontend URL
+  origin: process.env.FRONTEND_URL, // exact match, no trailing slash
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 
