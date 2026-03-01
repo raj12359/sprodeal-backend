@@ -6,10 +6,24 @@ const cors = require("cors");
 const app = express();
 
 /* ===== MIDDLEWARE ===== */
+const allowedOrigins = [
+  "http://127.0.0.1:5500",
+  "https://sprodeal-customer-care.netlify.app"
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
+
+app.options("*", cors());
 
 app.use(express.json());
 
