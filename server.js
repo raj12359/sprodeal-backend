@@ -8,7 +8,7 @@ const app = express();
 /* ===== MIDDLEWARE ===== */
 const allowedOrigins = [
   "http://127.0.0.1:5500",
-  "https://sprodeal-customer-care.netlify.app"
+  "https://sprodeals-customers-cares.netlify.app"
 ];
 
 app.use(cors({
